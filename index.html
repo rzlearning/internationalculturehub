@@ -10,6 +10,8 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- HTML2PDF Library -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <!-- SheetJS (Excel export for Speak Up Hour reports) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <!-- Globe.gl Library -->
     <script src="https://unpkg.com/globe.gl"></script>
     <!-- Google Identity Services (GSI) for Google SSO Login -->
@@ -246,6 +248,10 @@
             background: linear-gradient(120deg, transparent, rgba(255,255,255,0.35), transparent);
             animation: biz-badge-shine 3.2s ease-in-out infinite;
         }
+        .pdf-mode .no-pdf { display: none !important; }
+        .pdf-mode #reportsTableContainer { overflow: visible !important; }
+        .pdf-mode table { min-width: 0 !important; width: 100% !important; font-size: 8.5px !important; }
+        .pdf-mode tr { page-break-inside: avoid; }
     </style>
 </head>
 <body class="bg-slate-50 font-sans text-slate-800 antialiased selection:bg-rzorange-500 selection:text-white">
@@ -495,7 +501,7 @@
                                 <span class="text-xs font-semibold">Video Loading...</span>
                             </div>
                             <!-- Embed Youtube Video Here -->
-                            <iframe class="relative z-10 w-full h-full min-h-[250px]" src="https://www.youtube.com/embed/JoosE64Qylk?si=vpsFSijubCCuVp72" title="Speak Up Hour Video" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+                            <iframe class="relative z-10 w-full h-full min-h-[250px]" src="https://www.youtube.com/embed/PfnxAQXQtds?si=y6um87qTNpS7F5gx" title="Speak Up Hour Video" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
                         </div>
                     </div>
                 </div>
@@ -1259,22 +1265,37 @@
                 </div>
 
                 <div class="border-t border-slate-100 pt-6">
-                    <div class="flex justify-between items-center mb-4">
-                        <h3 class="font-extrabold text-slate-800 text-sm">Speak Up Hour Report History</h3>
-                        <button onclick="downloadPDF()" class="bg-red-600 hover:bg-red-700 text-white text-xs font-bold px-4 py-2 rounded-xl flex items-center gap-2 shadow-sm transition active:scale-95">
-                            <i class="fa-solid fa-file-pdf"></i> Download PDF Report
-                        </button>
+                    <div class="mb-4">
+                        <div class="flex flex-wrap justify-between items-center gap-2 mb-3">
+                            <h3 class="font-extrabold text-slate-800 text-sm flex items-center gap-2">Speak Up Hour Report History <span id="reportCountBadge" class="bg-slate-100 text-slate-600 text-[10px] font-extrabold px-2 py-0.5 rounded-full">0</span></h3>
+                            <div class="flex flex-wrap gap-2">
+                                <button onclick="downloadReportsXLSX()" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-3.5 py-2 rounded-xl flex items-center gap-2 shadow-sm transition active:scale-95"><i class="fa-solid fa-file-excel"></i> Excel</button>
+                                <button onclick="downloadReportsCSV()" class="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-3.5 py-2 rounded-xl flex items-center gap-2 shadow-sm transition active:scale-95"><i class="fa-solid fa-file-csv"></i> CSV</button>
+                                <button onclick="downloadPDF()" class="bg-red-600 hover:bg-red-700 text-white text-xs font-bold px-3.5 py-2 rounded-xl flex items-center gap-2 shadow-sm transition active:scale-95"><i class="fa-solid fa-file-pdf"></i> PDF</button>
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-2 md:grid-cols-6 gap-2 p-3 bg-slate-50 border border-slate-200/80 rounded-2xl">
+                            <input type="text" id="rptFilterSearch" oninput="renderReportsAdmin()" placeholder="Search agent, participant, topic..." class="col-span-2 text-xs p-2.5 border border-slate-300 rounded-xl bg-white outline-none focus:ring-2 focus:ring-rzorange-500">
+                            <select id="rptFilterAgent" onchange="renderReportsAdmin()" class="text-xs p-2.5 border border-slate-300 rounded-xl bg-white outline-none focus:ring-2 focus:ring-rzorange-500"></select>
+                            <select id="rptFilterDiv" onchange="renderReportsAdmin()" class="text-xs p-2.5 border border-slate-300 rounded-xl bg-white outline-none focus:ring-2 focus:ring-rzorange-500"></select>
+                            <input type="date" id="rptFilterFrom" onchange="renderReportsAdmin()" title="From date" class="text-xs p-2.5 border border-slate-300 rounded-xl bg-white outline-none focus:ring-2 focus:ring-rzorange-500">
+                            <input type="date" id="rptFilterTo" onchange="renderReportsAdmin()" title="To date" class="text-xs p-2.5 border border-slate-300 rounded-xl bg-white outline-none focus:ring-2 focus:ring-rzorange-500">
+                            <button type="button" onclick="resetReportFilters()" class="col-span-2 md:col-span-6 justify-self-end text-[11px] font-bold text-slate-500 hover:text-slate-800"><i class="fa-solid fa-rotate-left"></i> Reset filters</button>
+                        </div>
+                        <p class="text-[10px] text-slate-400 mt-1.5">Download (Excel / CSV / PDF) follows the filters above, so you can export a single agent, division, or date range.</p>
                     </div>
-                    
+
+                    <div id="reportStatsRow" class="grid grid-cols-2 md:grid-cols-5 gap-2 mb-3"></div>
+
                     <div id="pdf-report-container" class="bg-white border border-slate-200 rounded-2xl p-5">
                         <div class="mb-4 pb-3 border-b border-slate-200 flex justify-between items-center">
                             <div>
                                 <h2 class="text-base font-bold text-slate-800">HR Speak Up Hour - Session Reports Summary</h2>
                                 <p class="text-xs text-slate-500">Rumah Zakat People Development Department</p>
                             </div>
-                            <div class="text-xs text-right text-slate-400 font-semibold">Exported by HR Admin</div>
+                            <div id="reportExportMeta" class="text-xs text-right text-slate-400 font-semibold">Exported by HR Admin</div>
                         </div>
-                        <div id="reportsTableContainer"></div>
+                        <div id="reportsTableContainer" class="overflow-x-auto"></div>
                     </div>
                 </div>
             </div>
@@ -1322,6 +1343,46 @@
         </div>
 
     </main>
+
+    <!-- MODAL: EDIT SPEAK UP HOUR REPORT (Admin) -->
+    <div id="editReportModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 hidden z-50">
+        <form onsubmit="saveEditedReport(event)" class="bg-white rounded-2xl p-6 w-full max-w-3xl shadow-2xl border border-slate-200 max-h-[92vh] overflow-y-auto space-y-4">
+            <div class="flex justify-between items-start border-b border-slate-100 pb-3">
+                <div>
+                    <h3 class="font-black text-slate-800 flex items-center gap-2"><i class="fa-solid fa-pen-to-square text-rzorange-500"></i> Edit Session Report</h3>
+                    <p id="editRptMeta" class="text-[11px] text-slate-400 mt-0.5"></p>
+                </div>
+                <button type="button" onclick="closeEditReportModal()" class="text-slate-400 hover:text-slate-700"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="grid md:grid-cols-2 gap-3">
+                <div><label class="block text-[11px] font-bold text-slate-600 mb-1">English Agent</label><input type="text" id="editRptAgent" list="agentDatalist" required class="w-full text-xs p-2.5 border border-slate-300 rounded-xl outline-none focus:ring-2 focus:ring-rzorange-500"></div>
+                <div><label class="block text-[11px] font-bold text-slate-600 mb-1">Date & Time</label><input type="datetime-local" id="editRptDate" required class="w-full text-xs p-2.5 border border-slate-300 rounded-xl outline-none focus:ring-2 focus:ring-rzorange-500"></div>
+                <div><label class="block text-[11px] font-bold text-slate-600 mb-1">Division / Branch</label><select id="editRptDiv" required class="w-full text-xs p-2.5 border border-slate-300 rounded-xl bg-white outline-none focus:ring-2 focus:ring-rzorange-500"></select></div>
+                <div><label class="block text-[11px] font-bold text-slate-600 mb-1">Location / Office</label><select id="editRptOffice" required class="w-full text-xs p-2.5 border border-slate-300 rounded-xl bg-white outline-none focus:ring-2 focus:ring-rzorange-500"></select></div>
+                <div class="md:col-span-2"><label class="block text-[11px] font-bold text-slate-600 mb-1">Session Week Topic</label><input type="text" id="editRptTopic" required class="w-full text-xs p-2.5 border border-slate-300 rounded-xl font-semibold outline-none focus:ring-2 focus:ring-rzorange-500"></div>
+            </div>
+            <div class="bg-slate-50 p-3 rounded-2xl border border-slate-200/80">
+                <div class="flex justify-between items-center mb-2">
+                    <h4 class="text-xs font-bold text-slate-700">Participants & Scoring (1-5)</h4>
+                    <button type="button" onclick="addEditReportParticipant()" class="bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold px-3 py-1.5 rounded-lg transition active:scale-95">+ Add Participant</button>
+                </div>
+                <table class="w-full text-xs"><tbody id="editRptParticipants" class="divide-y divide-slate-200"></tbody></table>
+            </div>
+            <div class="grid md:grid-cols-2 gap-3">
+                <div><label class="block text-[11px] font-bold text-slate-600 mb-1">Topics Discussed</label><textarea id="editRptTopics" rows="3" class="w-full text-xs p-2.5 border border-slate-300 rounded-xl outline-none focus:ring-2 focus:ring-rzorange-500"></textarea></div>
+                <div><label class="block text-[11px] font-bold text-slate-600 mb-1">Challenges & Feedback</label><textarea id="editRptChallenges" rows="3" class="w-full text-xs p-2.5 border border-slate-300 rounded-xl outline-none focus:ring-2 focus:ring-rzorange-500"></textarea></div>
+            </div>
+            <div><label class="block text-[11px] font-bold text-slate-600 mb-1">Documentation Link</label><input type="url" id="editRptDoc" placeholder="https://drive.google.com/..." class="w-full text-xs p-2.5 border border-slate-300 rounded-xl outline-none focus:ring-2 focus:ring-rzorange-500"></div>
+            <p class="text-[10px] text-slate-400">Note: editing a report does not re-calculate XP that was already awarded.</p>
+            <div class="flex justify-between items-center pt-2 border-t border-slate-100">
+                <button type="button" onclick="deleteReport(editingReportId, true)" class="px-4 py-2 bg-red-50 text-red-600 hover:bg-red-100 rounded-xl text-xs font-bold transition"><i class="fa-solid fa-trash"></i> Delete Report</button>
+                <div class="flex gap-2">
+                    <button type="button" onclick="closeEditReportModal()" class="px-4 py-2 bg-slate-100 text-slate-700 rounded-xl text-xs font-bold hover:bg-slate-200">Cancel</button>
+                    <button type="submit" class="px-4 py-2 bg-rzorange-600 text-white rounded-xl text-xs font-bold hover:bg-rzorange-700 shadow-sm">Save Changes</button>
+                </div>
+            </div>
+        </form>
+    </div>
 
     <!-- MODAL: EDIT TOPIC -->
     <div id="editTopicModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 hidden z-50">
@@ -6575,6 +6636,9 @@ const CHARACTERS = [
             const docLink = document.getElementById("reportDocLink").value.trim();
 
             reportsDB.push({
+                id: newReportId(),
+                createdBy: currentUser ? { name: currentUser.name, email: currentUser.email, role: currentUser.role } : null,
+                createdAt: new Date().toISOString(),
                 date: document.getElementById("reportDateTime").value.replace("T", " "),
                 agent: document.getElementById("reportAgent").value,
                 div: document.getElementById("reportDivision").value,
@@ -7640,49 +7704,280 @@ const CHARACTERS = [
                 : "⚠️ Not configured yet. The Google Sign-In button will not appear until a Client ID is set.";
         }
 
-        function renderReportsAdmin() {
-            let html = `
-                <table class="w-full text-xs text-left border-collapse">
-                    <thead class="bg-slate-100 text-slate-700 uppercase">
-                        <tr>
-                            <th class="p-2 border">Date & Time</th>
-                            <th class="p-2 border">English Agent & Division</th>
-                            <th class="p-2 border">Location</th>
-                            <th class="p-2 border">Session Topic</th>
-                            <th class="p-2 border">Participants & Score</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-slate-200">
-            `;
-            
+        // ================= SPEAK UP HOUR REPORTS — ADMIN: VIEW / FILTER / EDIT / DELETE / DOWNLOAD =================
+        function rzEsc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }
+        function rzVal(id) { const el = document.getElementById(id); return el ? el.value : ''; }
+        function newReportId() { return 'rpt_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
+        // Older reports (saved before edit/delete existed) have no id — give them one.
+        function ensureReportIds() {
+            let changed = false;
             reportsDB.forEach(r => {
-                let pStr = r.parts.map(p => `${p.name}${p.email ? ` <span class="text-slate-400">(${p.email})</span>` : ''} (Score: ${p.score})`).join("<br>");
-                html += `
-                    <tr>
-                        <td class="p-2 border font-medium">${r.date}</td>
-                        <td class="p-2 border"><b>${r.agent}</b><br><span class="text-slate-500">${r.div}</span></td>
-                        <td class="p-2 border">${r.office}</td>
-                        <td class="p-2 border font-bold text-rzorange-600">${r.topic}</td>
-                        <td class="p-2 border leading-relaxed">${pStr}</td>
-                    </tr>
-                `;
+                if (!r.id) { r.id = newReportId(); changed = true; }
+                if (!Array.isArray(r.parts)) r.parts = [];
             });
-            html += `</tbody></table>`;
-            document.getElementById("reportsTableContainer").innerHTML = reportsDB.length > 0 ? html : `<p class="text-xs text-slate-500 p-4 text-center">No reports yet diskusi yang disubmit.</p>`;
+            return changed;
+        }
+        function reportAvgScore(r) {
+            const s = (r.parts || []).map(p => parseFloat(p.score)).filter(n => !isNaN(n));
+            return s.length ? Math.round((s.reduce((a, b) => a + b, 0) / s.length) * 10) / 10 : null;
+        }
+        function reportCreatorLabel(r) {
+            return r.createdBy && r.createdBy.name ? `${r.createdBy.name}${r.createdBy.role ? ' (' + r.createdBy.role + ')' : ''}` : '—';
         }
 
+        function getFilteredReports() {
+            const q = rzVal('rptFilterSearch').toLowerCase().trim();
+            const ag = rzVal('rptFilterAgent'), dv = rzVal('rptFilterDiv');
+            const from = rzVal('rptFilterFrom'), to = rzVal('rptFilterTo');
+            return reportsDB.filter(r => {
+                if (ag && r.agent !== ag) return false;
+                if (dv && r.div !== dv) return false;
+                const d = (r.date || '').slice(0, 10);
+                if (from && d < from) return false;
+                if (to && d > to) return false;
+                if (q) {
+                    const hay = [r.agent, r.div, r.office, r.topic, r.topicsDiscussed, r.challenges, r.doc, r.createdBy && r.createdBy.name]
+                        .concat((r.parts || []).map(p => (p.name || '') + ' ' + (p.email || ''))).join(' ').toLowerCase();
+                    if (!hay.includes(q)) return false;
+                }
+                return true;
+            }).sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+        }
+
+        function resetReportFilters() {
+            ['rptFilterSearch', 'rptFilterAgent', 'rptFilterDiv', 'rptFilterFrom', 'rptFilterTo'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+            renderReportsAdmin();
+        }
+
+        function fillReportFilterSelect(id, label, values) {
+            const el = document.getElementById(id);
+            if (!el) return;
+            const keep = el.value;
+            el.innerHTML = '';
+            el.appendChild(new Option(label, ''));
+            [...new Set(values.filter(Boolean))].sort().forEach(v => el.appendChild(new Option(v, v)));
+            if (keep && [...el.options].some(o => o.value === keep)) el.value = keep;
+        }
+
+        function buildReportsTableHtml(list, withActions) {
+            const th = 'p-2 border text-[10px]';
+            let html = `<table class="w-full text-xs text-left border-collapse ${withActions ? 'min-w-[1200px]' : ''}">
+                <thead class="bg-slate-100 text-slate-700 uppercase"><tr>
+                    <th class="${th}">No</th><th class="${th}">Date & Time</th><th class="${th}">Agent & Division</th><th class="${th}">Location</th>
+                    <th class="${th}">Session Topic</th><th class="${th}">Topics Discussed</th><th class="${th}">Challenges & Feedback</th>
+                    <th class="${th}">Participants & Score</th><th class="${th}">Docs</th><th class="${th}">Created By</th>
+                    ${withActions ? `<th class="${th} no-pdf">Actions</th>` : ''}
+                </tr></thead><tbody class="divide-y divide-slate-200">`;
+            list.forEach((r, i) => {
+                const parts = (r.parts || []).map(p => `${rzEsc(p.name)}${p.email ? ` <span class="text-slate-400">(${rzEsc(p.email)})</span>` : ''} — <b>${rzEsc(p.score)}</b>`).join('<br>');
+                const avg = reportAvgScore(r);
+                const doc = r.doc && /^https?:\/\//i.test(r.doc) ? `<a href="${rzEsc(r.doc)}" target="_blank" rel="noopener" class="text-blue-600 underline">Open</a>` : '<span class="text-slate-300">-</span>';
+                html += `<tr class="align-top">
+                    <td class="p-2 border text-slate-400 font-bold">${i + 1}</td>
+                    <td class="p-2 border font-medium whitespace-nowrap">${rzEsc(r.date)}</td>
+                    <td class="p-2 border"><b>${rzEsc(r.agent)}</b><br><span class="text-slate-500">${rzEsc(r.div)}</span></td>
+                    <td class="p-2 border">${rzEsc(r.office)}</td>
+                    <td class="p-2 border font-bold text-rzorange-600">${rzEsc(r.topic)}</td>
+                    <td class="p-2 border leading-relaxed">${rzEsc(r.topicsDiscussed) || '<span class="text-slate-300">-</span>'}</td>
+                    <td class="p-2 border leading-relaxed">${rzEsc(r.challenges) || '<span class="text-slate-300">-</span>'}</td>
+                    <td class="p-2 border leading-relaxed">${parts || '<span class="text-slate-300">-</span>'}${avg !== null ? `<div class="mt-1 text-[10px] text-slate-500">Avg: <b>${avg}</b> · ${r.parts.length} participant(s)</div>` : ''}</td>
+                    <td class="p-2 border">${doc}</td>
+                    <td class="p-2 border text-[11px] text-slate-500">${rzEsc(reportCreatorLabel(r))}${r.updatedAt ? `<div class="text-[10px] text-amber-600">Edited by ${rzEsc(r.updatedBy || '-')}</div>` : ''}</td>
+                    ${withActions ? `<td class="p-2 border no-pdf whitespace-nowrap">
+                        <button onclick="openEditReportModal('${r.id}')" title="Edit" class="w-7 h-7 rounded-lg bg-amber-50 text-amber-600 hover:bg-amber-100 transition"><i class="fa-solid fa-pen"></i></button>
+                        <button onclick="deleteReport('${r.id}')" title="Delete" class="w-7 h-7 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 transition"><i class="fa-solid fa-trash"></i></button>
+                    </td>` : ''}
+                </tr>`;
+            });
+            return html + '</tbody></table>';
+        }
+
+        function renderReportsAdmin() {
+            if (ensureReportIds() && isAdmin) saveReports();
+            fillReportFilterSelect('rptFilterAgent', 'All agents', reportsDB.map(r => r.agent));
+            fillReportFilterSelect('rptFilterDiv', 'All divisions', reportsDB.map(r => r.div));
+            const list = getFilteredReports();
+
+            const badge = document.getElementById('reportCountBadge');
+            if (badge) badge.innerText = list.length === reportsDB.length ? reportsDB.length : `${list.length} / ${reportsDB.length}`;
+
+            const people = new Set(), scores = [];
+            let withDoc = 0, entries = 0;
+            list.forEach(r => {
+                if (r.doc) withDoc++;
+                (r.parts || []).forEach(p => { entries++; people.add((p.email || p.name || '').toLowerCase()); const s = parseFloat(p.score); if (!isNaN(s)) scores.push(s); });
+            });
+            const avgAll = scores.length ? (scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(1) : '-';
+            const stat = (v, l) => `<div class="bg-slate-50 rounded-xl p-2.5 border border-slate-200/70 text-center"><div class="text-sm font-black text-slate-800">${v}</div><div class="text-[10px] text-slate-500 font-bold">${l}</div></div>`;
+            const statsEl = document.getElementById('reportStatsRow');
+            if (statsEl) statsEl.innerHTML = stat(list.length, 'Sessions') + stat(people.size, 'Unique participants') + stat(entries, 'Participant entries') + stat(avgAll, 'Average score') + stat(withDoc, 'With documentation');
+
+            const meta = document.getElementById('reportExportMeta');
+            if (meta) meta.innerHTML = `Exported by ${rzEsc(currentUser ? currentUser.name : 'HR Admin')}<br>${new Date().toLocaleString('en-GB')} · ${list.length} report(s)`;
+
+            document.getElementById('reportsTableContainer').innerHTML = list.length > 0
+                ? buildReportsTableHtml(list, true)
+                : `<p class="text-xs text-slate-500 p-4 text-center">${reportsDB.length ? 'No reports match the current filters.' : 'No reports yet diskusi yang disubmit.'}</p>`;
+        }
+
+        // ---- EDIT ----
+        let editingReportId = null;
+        function fillEditSelect(id, options, current) {
+            const el = document.getElementById(id);
+            el.innerHTML = '';
+            const list = options.slice();
+            if (current && !list.includes(current)) list.unshift(current);
+            list.forEach(o => el.appendChild(new Option(o, o)));
+            el.value = current || '';
+        }
+        function addEditReportParticipant(p) {
+            p = p || { name: '', email: '', score: 5 };
+            document.getElementById('editRptParticipants').insertAdjacentHTML('beforeend', `
+                <tr class="ep-row">
+                    <td class="p-1"><input type="text" list="participantsDatalist" value="${rzEsc(p.name)}" placeholder="Participant name" class="ep-name w-full text-xs p-2 border border-slate-300 rounded-xl outline-none focus:ring-2 focus:ring-rzorange-500"></td>
+                    <td class="p-1"><input type="email" value="${rzEsc(p.email)}" placeholder="Email / Gmail" class="ep-email w-full text-xs p-2 border border-slate-300 rounded-xl outline-none focus:ring-2 focus:ring-rzorange-500"></td>
+                    <td class="p-1 w-20"><input type="number" min="1" max="5" value="${rzEsc(p.score)}" class="ep-score w-full text-xs p-2 border border-slate-300 rounded-xl outline-none focus:ring-2 focus:ring-rzorange-500"></td>
+                    <td class="p-1 w-8 text-center"><button type="button" onclick="this.closest('tr').remove()" class="text-red-500 font-bold hover:bg-red-50 w-7 h-7 rounded-lg">✕</button></td>
+                </tr>`);
+        }
+        function openEditReportModal(id) {
+            if (!isAdmin) { alert('Only Admin can edit reports.'); return; }
+            const r = reportsDB.find(x => x.id === id);
+            if (!r) { alert('Report not found — it may have been deleted or updated on another device.'); renderReportsAdmin(); return; }
+            editingReportId = id;
+            document.getElementById('editRptMeta').innerText = `Created by ${reportCreatorLabel(r)}${r.createdAt ? ' · ' + new Date(r.createdAt).toLocaleString('en-GB') : ''}`;
+            document.getElementById('editRptAgent').value = r.agent || '';
+            document.getElementById('editRptDate').value = (r.date || '').replace(' ', 'T').slice(0, 16);
+            fillEditSelect('editRptDiv', formOptions.divisions, r.div);
+            fillEditSelect('editRptOffice', formOptions.offices, r.office);
+            document.getElementById('editRptTopic').value = r.topic || '';
+            document.getElementById('editRptTopics').value = r.topicsDiscussed || '';
+            document.getElementById('editRptChallenges').value = r.challenges || '';
+            document.getElementById('editRptDoc').value = r.doc || '';
+            document.getElementById('editRptParticipants').innerHTML = '';
+            (r.parts && r.parts.length ? r.parts : [null]).forEach(p => addEditReportParticipant(p || undefined));
+            populateSelect('agentDatalist', formOptions.agents);
+            populateSelect('participantsDatalist', formOptions.participants);
+            document.getElementById('editReportModal').classList.remove('hidden');
+        }
+        function closeEditReportModal() {
+            document.getElementById('editReportModal').classList.add('hidden');
+            editingReportId = null;
+        }
+        function saveEditedReport(e) {
+            e.preventDefault();
+            if (!isAdmin) return;
+            const r = reportsDB.find(x => x.id === editingReportId);
+            if (!r) { alert('Report not found.'); closeEditReportModal(); return; }
+            const parts = [];
+            document.querySelectorAll('#editRptParticipants .ep-row').forEach(row => {
+                const name = row.querySelector('.ep-name').value.trim();
+                const email = row.querySelector('.ep-email').value.trim();
+                let score = parseInt(row.querySelector('.ep-score').value);
+                if (!name) return;
+                score = isNaN(score) ? 1 : Math.min(5, Math.max(1, score));
+                parts.push({ name, email, score: String(score) });
+                if (email) setParticipantEmail(name, email);
+            });
+            r.agent = rzVal('editRptAgent').trim();
+            r.date = rzVal('editRptDate').replace('T', ' ');
+            r.div = rzVal('editRptDiv');
+            r.office = rzVal('editRptOffice');
+            r.topic = rzVal('editRptTopic').trim();
+            r.topicsDiscussed = rzVal('editRptTopics');
+            r.challenges = rzVal('editRptChallenges');
+            r.doc = rzVal('editRptDoc').trim();
+            r.parts = parts;
+            r.updatedAt = new Date().toISOString();
+            r.updatedBy = currentUser ? currentUser.name : 'Admin';
+            saveReports();
+            renderReportsAdmin();
+            updateLeaderboard();
+            closeEditReportModal();
+            alert('Report updated successfully.');
+        }
+
+        // ---- DELETE ----
+        function deleteReport(id, fromModal) {
+            if (!isAdmin) { alert('Only Admin can delete reports.'); return; }
+            const r = reportsDB.find(x => x.id === id);
+            if (!r) return;
+            if (!confirm(`Delete this report?\n\n${r.date} — ${r.agent} (${r.div})\nTopic: ${r.topic}\n\nThis cannot be undone.`)) return;
+            reportsDB = reportsDB.filter(x => x.id !== id);
+            saveReports();
+            renderReportsAdmin();
+            updateLeaderboard();
+            if (fromModal) closeEditReportModal();
+        }
+
+        // ---- DOWNLOAD ----
+        function rzDownloadBlob(blob, filename) {
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = filename;
+            document.body.appendChild(a); a.click(); a.remove();
+            setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+        }
+        function rzExportName(ext) { return `SpeakUpHour_Reports_${new Date().toISOString().slice(0, 10)}.${ext}`; }
+        function reportsToRows(list) {
+            return list.map((r, i) => ({
+                'No': i + 1, 'Date & Time': r.date || '', 'English Agent': r.agent || '', 'Division': r.div || '', 'Location': r.office || '',
+                'Session Topic': r.topic || '', 'Topics Discussed': r.topicsDiscussed || '', 'Challenges & Feedback': r.challenges || '',
+                'Participants & Scores': (r.parts || []).map(p => `${p.name}${p.email ? ' <' + p.email + '>' : ''} (${p.score})`).join('; '),
+                'Participant Count': (r.parts || []).length, 'Average Score': reportAvgScore(r) === null ? '' : reportAvgScore(r),
+                'Documentation Link': r.doc || '', 'Created By': reportCreatorLabel(r) === '—' ? '' : reportCreatorLabel(r),
+                'Created At': r.createdAt || '', 'Last Edited By': r.updatedBy || '', 'Last Edited At': r.updatedAt || ''
+            }));
+        }
+        function participantRowsForExport(list) {
+            const rows = [];
+            list.forEach(r => (r.parts || []).forEach(p => rows.push({
+                'Date & Time': r.date || '', 'English Agent': r.agent || '', 'Division': r.div || '', 'Location': r.office || '',
+                'Session Topic': r.topic || '', 'Participant': p.name || '', 'Email': p.email || '', 'Score': parseFloat(p.score) || ''
+            })));
+            return rows;
+        }
+        function downloadReportsCSV() {
+            const list = getFilteredReports();
+            if (!list.length) { alert('No reports to download.'); return; }
+            const rows = reportsToRows(list), cols = Object.keys(rows[0]);
+            const cell = v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
+            const csv = [cols.map(cell).join(',')].concat(rows.map(r => cols.map(c => cell(r[c])).join(','))).join('\r\n');
+            rzDownloadBlob(new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' }), rzExportName('csv'));
+        }
+        function downloadReportsXLSX() {
+            const list = getFilteredReports();
+            if (!list.length) { alert('No reports to download.'); return; }
+            if (typeof XLSX === 'undefined') { alert('The Excel library could not be loaded (check internet connection). Downloading CSV instead.'); downloadReportsCSV(); return; }
+            const wb = XLSX.utils.book_new();
+            const ws1 = XLSX.utils.json_to_sheet(reportsToRows(list));
+            ws1['!cols'] = [6, 17, 20, 22, 20, 28, 40, 40, 50, 11, 11, 32, 22, 20, 18, 20].map(w => ({ wch: w }));
+            XLSX.utils.book_append_sheet(wb, ws1, 'Reports');
+            const pr = participantRowsForExport(list);
+            if (pr.length) {
+                const ws2 = XLSX.utils.json_to_sheet(pr);
+                ws2['!cols'] = [17, 20, 22, 20, 28, 24, 30, 8].map(w => ({ wch: w }));
+                XLSX.utils.book_append_sheet(wb, ws2, 'Participant Scores');
+            }
+            XLSX.writeFile(wb, rzExportName('xlsx'));
+        }
         function downloadPDF() {
+            const list = getFilteredReports();
+            if (!list.length) { alert('No reports to download.'); return; }
             const el = document.getElementById('pdf-report-container');
+            el.classList.add('pdf-mode');
+            const restore = () => el.classList.remove('pdf-mode');
             const opt = {
-                margin: 0.5,
-                filename: 'HR_SpeakUp_Hour_Reports.pdf',
+                margin: 0.4,
+                filename: rzExportName('pdf'),
                 image: { type: 'jpeg', quality: 0.98 },
                 html2canvas: { scale: 2 },
-                jsPDF: { unit: 'in', format: 'a4', orientation: 'landscape' }
+                jsPDF: { unit: 'in', format: 'a4', orientation: 'landscape' },
+                pagebreak: { mode: ['css', 'legacy'], avoid: 'tr' }
             };
-            html2pdf().set(opt).from(el).save();
+            html2pdf().set(opt).from(el).save().then(restore).catch(restore);
         }
-        
+
         // The modal has its OWN Year/Month/Week selectors (editTopicYearSelect/
         // editTopicMonthSelect/editTopicWeekSelect) so an Admin can retitle ANY week
         // without leaving this modal / bouncing back to the Speak Up Hour tab. They
