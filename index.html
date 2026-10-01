@@ -6170,21 +6170,29 @@ const CHARACTERS = [
             if (wantedYear && YEARS.includes(wantedYear)) yrSel.value = wantedYear;
             onYearChange();
             
-            const now = new Date();
-            now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
-            document.getElementById("reportDateTime").value = now.toISOString().slice(0, 16);
+            // Only fill the date when empty, and only add a participant row when none exist,
+            // so a periodic re-render never erases a report that is being filled in.
+            const dtEl = document.getElementById("reportDateTime");
+            if (!dtEl.value) {
+                const now = new Date();
+                now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+                dtEl.value = now.toISOString().slice(0, 16);
+            }
 
             populateFormDropdowns();
-            addParticipantRow();
+            if (!document.querySelector("#participantsContainer .p-row")) addParticipantRow();
         }
 
         function populateSelect(id, list) {
             const el = document.getElementById(id);
             if (!el) return;
+            const keepValue = el.tagName === 'SELECT' ? el.value : "";
             el.innerHTML = "";
             if (el.tagName === 'SELECT') {
                 el.appendChild(new Option("-- Select --", ""));
                 list.forEach(item => el.appendChild(new Option(item, item)));
+                // Background cloud-sync re-renders must not wipe what the user already picked
+                if (keepValue && [...el.options].some(o => o.value === keepValue)) el.value = keepValue;
             } else if (el.tagName === 'DATALIST') {
                 list.forEach(item => el.appendChild(new Option(item, item)));
             }
@@ -6681,6 +6689,7 @@ const CHARACTERS = [
 
             alert("Speak Up Hour Report Submitted Successfully!");
             e.target.reset();
+            document.getElementById("participantsContainer").innerHTML = "";
             initDropdowns();
         }
 
